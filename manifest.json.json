@@ -1,0 +1,35 @@
+{
+  "name": "Wealth Tracker",
+  "short_name": "Wealth",
+  "description": "Personal finance, spending & wealth tracker",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "background_color": "#4f46e5",
+  "theme_color": "#4f46e5",
+  "orientation": "portrait-primary",
+  "lang": "en-IN",
+  "icons": [
+    {
+      "src": "https://via.placeholder.com/192x192/4f46e5/ffffff?text=%F0%9F%92%B0",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "https://via.placeholder.com/512x512/4f46e5/ffffff?text=%F0%9F%92%B0",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ],
+  "categories": ["finance", "productivity"],
+  "shortcuts": [
+    {
+      "name": "Add Transaction",
+      "short_name": "Add",
+      "description": "Quickly add income or expense",
+      "url": ".",
+      "icons": [{ "src": "https://via.placeholder.com/96x96/4f46e5/ffffff?text=%2B", "sizes": "96x96" }]
+    }
+  ]
+}
