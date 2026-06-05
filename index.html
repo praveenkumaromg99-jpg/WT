@@ -1,117 +1,187 @@
-<div class="fld"><label>Current Value (₹)</label><input type="number" id="fb" placeholder="0" inputmode="numeric"/></div>`;
-  if(t==='debt') return `
-    <div class="fld"><label>Lender Name</label><input type="text" id="fn" placeholder="e.g. Bank Loan"/></div>
-    <div class="fld"><label>Amount (₹)</label><input type="number" id="fa" placeholder="0" inputmode="numeric"/></div>
-    <div class="fld"><label>Note (optional)</label><input type="text" id="fx" placeholder="e.g. Car EMI"/></div>`;
-  if(t==='pin') return `
-    <div class="fld"><label>Enter New 4-Digit PIN</label><input type="password" id="fpin" maxlength="4" pattern="[0-9]*" inputmode="numeric" placeholder="▪▪▪▪"/></div>`;
-  return '';
-}
+<!DOCTYPE html>
+<html lang="en-IN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wealth Tracker</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#4f46e5">
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { background-color: #f3f4f6; }
+    </style>
+</head>
+<body class="p-4 md:p-8 max-w-4xl mx-auto">
 
-function tTF(){
-  const t=document.getElementById('ft').value;
-  document.getElementById('fsw').style.display=t==='income'?'block':'none';
-  document.getElementById('fcw').style.display=t==='expense'?'block':'none';
-}
+    <header class="bg-indigo-600 text-white rounded-2xl p-6 shadow-lg mb-6 flex justify-between items-center">
+        <div>
+            <h1 class="text-2xl font-bold tracking-tight">💰 Wealth Tracker</h1>
+            <p class="text-indigo-200 text-sm">Personal finance & spending dashboard</p>
+        </div>
+        <div class="text-right">
+            <p class="text-xs text-indigo-200 uppercase tracking-wider">Net Worth</p>
+            <p id="total-balance" class="text-3xl font-extrabold">₹0</p>
+        </div>
+    </header>
 
-function saveModal(){
-  if(mType==='txn'){
-    const ty=g('ft'), am=Number(g('fa'))||0, ac=g('fac'), dt=g('fd'), nt=g('fn');
-    const src=ty==='income'?g('fs'):'', cat=ty==='expense'?g('fc'):'';
-    if(!am) return toast('Enter valid amount');
-    const accIdx=DB.accounts.findIndex(x=>x.name===ac);
-    if(accIdx!==-1){
-      if(ty==='income') DB.accounts[accIdx].balance+=am;
-      else DB.accounts[accIdx].balance-=am;
-    }
-    DB.transactions.push({id:nextId(DB.transactions),date:dt,type:ty,amount:am,source:src,category:cat,account:ac,note:nt});
-  }else if(mType==='account'){
-    const n=g('fn'), b=Number(g('fb'))||0;if(!n) return toast('Enter name');
-    DB.accounts.push({id:nextId(DB.accounts),name:n,balance:b});
-  }else if(mType==='asset'){
-    const n=g('fn'), v=Number(g('fb'))||0;if(!n) return toast('Enter name');
-    DB.assets.push({id:nextId(DB.assets),name:n,value:v});
-  }else if(mType==='debt'){
-    const l=g('fn'), a=Number(g('fa'))||0, x=g('fx');if(!l||!a) return toast('Enter details');
-    DB.debts.push({id:nextId(DB.debts),lender:l,amount:a,note:x});
-  }else if(mType==='pin'){
-    const p=g('fpin');if(p.length!==4||isNaN(p)) return toast('Enter 4 digits');
-    localStorage.setItem(PIN_KEY,p);toast('PIN Saved Lock Active!');
-  }
-  saveDB();closeModal();renderPage();
-}
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <section class="bg-white p-6 rounded-2xl shadow-sm md:col-span-1">
+            <h2 class="text-lg font-bold text-gray-800 mb-4">Add Transaction</h2>
+            <form id="tx-form" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-600">Description</label>
+                    <input type="text" id="tx-desc" required placeholder="e.g., Groceries, Salary" class="w-full mt-1 p-2.5 border rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-600">Amount (₹)</label>
+                    <input type="number" id="tx-amount" required placeholder="0.00" class="w-full mt-1 p-2.5 border rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-600">Type</label>
+                    <select id="tx-type" class="w-full mt-1 p-2.5 border rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none">
+                        <option value="expense">📉 Expense</option>
+                        <option value="income">📈 Income</option>
+                    </select>
+                </div>
+                <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold p-3 rounded-xl transition shadow-md">
+                    Save Transaction
+                </button>
+            </form>
+        </section>
 
-function delTxn(id){
-  const idx=DB.transactions.findIndex(x=>x.id===id);
-  if(idx!==-1){
-    const t=DB.transactions[idx];
-    const accIdx=DB.accounts.findIndex(x=>x.name===t.account);
-    if(accIdx!==-1){
-      if(t.type==='income') DB.accounts[accIdx].balance-=t.amount;
-      else DB.accounts[accIdx].balance+=t.amount;
-    }
-    DB.transactions.splice(idx,1);saveDB();renderPage();
-  }
-}
+        <section class="bg-white p-6 rounded-2xl shadow-sm md:col-span-2 flex flex-col justify-between">
+            <h2 class="text-lg font-bold text-gray-800 mb-2">Financial Breakdown</h2>
+            <div class="w-full max-h-64 flex justify-center">
+                <canvas id="financeChart"></canvas>
+            </div>
+            <div class="flex justify-around text-center mt-4 pt-4 border-t">
+                <div>
+                    <p class="text-xs text-gray-400 uppercase">Total Income</p>
+                    <p id="total-income" class="text-xl font-bold text-green-600">₹0</p>
+                </div>
+                <div>
+                    <p class="text-xs text-gray-400 uppercase">Total Expenses</p>
+                    <p id="total-expense" class="text-xl font-bold text-red-500">₹0</p>
+                </div>
+            </div>
+        </section>
+    </div>
 
-function delItem(key,id){
-  DB[key]=DB[key].filter(x=>x.id!==id);saveDB();renderPage();
-}
+    <section class="bg-white p-6 rounded-2xl shadow-sm mt-6">
+        <h2 class="text-lg font-bold text-gray-800 mb-4">Transaction History</h2>
+        <div class="overflow-x-auto">
+            <ul id="tx-history" class="divide-y divide-gray-100 max-h-60 overflow-y-auto">
+                <p class="text-sm text-gray-400 text-center py-4">No logged transactions yet.</p>
+            </ul>
+        </div>
+    </section>
 
-// ── PIN SECURITY ENGINE ───────────────────
-let pinBuf='';
-function checkPinState(){
-  const pin=localStorage.getItem(PIN_KEY);
-  if(pin){document.getElementById('pinScreen').classList.add('show');}
-  else{document.getElementById('splash').classList.add('hide');}
-}
-function pk(n){
-  if(pinBuf.length<4){pinBuf+=n;updPinDots();if(pinBuf.length===4)vPin();}}
-function pkDel(){if(pinBuf.length>0){pinBuf=pinBuf.slice(0,-1);updPinDots();}}
-function pkClr(){pinBuf='';updPinDots();}
-function updPinDots(){
-  for(let i=0;i<4;i++)document.getElementById('pd'+i).classList[i<pinBuf.length?'add':'remove']('fill');
-}
-function vPin(){
-  const pin=localStorage.getItem(PIN_KEY);
-  if(pinBuf===pin){
-    document.getElementById('pinScreen').classList.remove('show');
-    document.getElementById('splash').classList.add('hide');
-    pkClr();
-  }else{
-    document.getElementById('pinErr').textContent='❌ Invalid PIN. Try again.';
-    pinBuf='';setTimeout(()=>{document.getElementById('pinErr').textContent='';updPinDots();},1000);
-  }
-}
-function skipPin(){
-  document.getElementById('pinScreen').classList.remove('show');
-  document.getElementById('splash').classList.add('hide');
-}
-function removePin(){localStorage.removeItem(PIN_KEY);goPage('settings');toast('PIN Removed');}
+    <script>
+        // Local Storage State Engine
+        let transactions = JSON.parse(localStorage.getItem('wt_transactions')) || [];
 
-// ── SYSTEM MANAGEMENT ─────────────────────
-function toast(m){
-  const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');
-  setTimeout(()=>t.classList.remove('show'),2500);
-}
-function exportData(){
-  const dataStr="data:text/json;charset=utf-8,"+encodeURIComponent(JSON.stringify(DB));
-  const dl=document.createElement('a');dl.setAttribute("href",dataStr);
-  dl.setAttribute("download","wealth_tracker_backup.json");dl.click();
-}
-function importData(e){
-  const f=e.target.files[0];if(!f)return;const r=new FileReader();
-  r.onload=function(ev){try{const parsed=JSON.parse(ev.target.result);if(parsed.accounts) {DB=parsed;saveDB();renderPage();toast('✅ Restored successfully');}}catch(err){toast('❌ Invalid File');}};
-  r.readAsText(f);
-}
-function clearAll(){if(confirm('Delete everything? This layout cannot be undone!')){DB={accounts:[],assets:[],debts:[],transactions:[]};saveDB();renderPage();}}
+        // UI Core DOM Elements
+        const form = document.getElementById('tx-form');
+        const descInput = document.getElementById('tx-desc');
+        const amountInput = document.getElementById('tx-amount');
+        const typeInput = document.getElementById('tx-type');
+        const historyList = document.getElementById('tx-history');
+        const balanceDisplay = document.getElementById('total-balance');
+        const incomeDisplay = document.getElementById('total-income');
+        const expenseDisplay = document.getElementById('total-expense');
 
-// ── INITIALIZE ────────────────────────────
-window.addEventListener('online',()=>document.querySelector('.offline-tag').style.display='none');
-window.addEventListener('offline',()=>document.querySelector('.offline-tag').style.display='inline-block');
-if(navigator.onLine) setTimeout(()=> {const ot=document.querySelector('.offline-tag'); if(ot) ot.style.display='none';},100);
+        // Analytics Chart Setup Instance
+        const ctx = document.getElementById('financeChart').getContext('2d');
+        let chart = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Income', 'Expenses'],
+                datasets: [{
+                    data: [0, 0],
+                    backgroundColor: ['#10b981', '#f43f5e'],
+                    borderWidth: 2
+                }]
+            },
+            options: { responsive: true, maintainAspectRatio: false }
+        });
 
-renderWheel();goPage('dash');checkPinState();
-</script>
+        // App Renderer Refresh Logic
+        function updateUI() {
+            historyList.innerHTML = '';
+            let income = 0, expense = 0;
+
+            if (transactions.length === 0) {
+                historyList.innerHTML = '<p class="text-sm text-gray-400 text-center py-4">No logged transactions yet.</p>';
+            }
+
+            transactions.forEach((tx, idx) => {
+                const isIncome = tx.type === 'income';
+                if (isIncome) income += tx.amount;
+                else expense += tx.amount;
+
+                const li = document.createElement('li');
+                li.className = "flex justify-between items-center py-3 text-sm";
+                li.innerHTML = `
+                    <div class="flex items-center space-x-3">
+                        <span class="p-2 rounded-full ${isIncome ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}">
+                            ${isIncome ? '📈' : '📉'}
+                        </span>
+                        <span class="font-medium text-gray-700">${tx.desc}</span>
+                    </div>
+                    <div class="flex items-center space-x-4">
+                        <span class="font-semibold ${isIncome ? 'text-green-600' : 'text-red-500'}">
+                            ${isIncome ? '+' : '-'} ₹${tx.amount.toLocaleString('en-IN')}
+                        </span>
+                        <button onclick="deleteTx(${idx})" class="text-gray-300 hover:text-red-500 transition">✕</button>
+                    </div>
+                `;
+                historyList.appendChild(li);
+            });
+
+            const netWorth = income - expense;
+            balanceDisplay.innerText = `₹${netWorth.toLocaleString('en-IN')}`;
+            incomeDisplay.innerText = `₹${income.toLocaleString('en-IN')}`;
+            expenseDisplay.innerText = `₹${expense.toLocaleString('en-IN')}`;
+
+            // Sync visual chart
+            chart.data.datasets[0].data = [income, expense];
+            chart.update();
+
+            localStorage.setItem('wt_transactions', JSON.stringify(transactions));
+        }
+
+        // Action Handlers
+        form.addEventListener('submit', (e) => {
+            e.preventDefault();
+            transactions.unshift({
+                desc: descInput.value,
+                amount: parseFloat(amountInput.value),
+                type: typeInput.value
+            });
+            descInput.value = '';
+            amountInput.value = '';
+            updateUI();
+        });
+
+        window.deleteTx = function(idx) {
+            transactions.splice(idx, 1);
+            updateUI();
+        };
+
+        // Initialize App View
+        updateUI();
+
+        // Register Service Worker for PWA compliance
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .then(reg => console.log('Service Worker Active!', reg.scope))
+                    .catch(err => console.error('Service Worker Fault:', err));
+            });
+        }
+    </script>
 </body>
 </html>
